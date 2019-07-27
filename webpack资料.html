@@ -1,0 +1,148 @@
+1、运行(https://www.jianshu.com/p/c094e42b0bc2)
+    1) 全局安装 webpack 和 webpack-cli
+        npm i webpack -g
+        npm i webpack-cli -g
+
+    2) 在文件中创建一个package.json文件
+        npm init (-y:默认)  /   webpack init
+
+    3)然后在在 package.json 中 scripts 中加入以下两行代码：
+        "dev": "webpack --mode development",
+        "build": "webpack --mode production"
+
+    4)然后在命令行中执行
+        npm run build//(或dev)
+
+2、修改默认的输入和输出文件
+    <script> //加这个标签完全是为了代码好看
+        //这个配置文件就是一个js文件，通过node中的模块操作，向外暴露了一个配置对象
+        const path= require('path');
+        module.exports = {
+            entry: path.join(__dirname,'./src/index.js'), //入口，表示要用webpack打包哪个文件
+            output:{ //这是输出文件相关的配置
+                path : path.join(__dirname,'./dist'),//指定打包好的文件输出到哪个文件目录中去
+                filename: 'main.js' //指定输出文件的名称
+            }
+        };
+    </script>
+
+3、热启动:必须在本地安装webpack和webpack-cli，即使你安装了全局的webpack和webpack-cli
+    npm i webpack-dev-server -D
+    修改package.json中的"scripts":
+        "dev": "webpack-dev-server --mode development",
+        "build": "webpack-dev-server --mode production"
+
+        "dev": "webpack-dev-server --mode development  --open --port 3000 --hot",
+            --open:自动打开浏览器
+            --port 3000:设置端口
+            --contentBase src:浏览器打开直接显示src的index，而不是显示根目录
+            --hot：如果不加这个，每一次都会重新生成一个文件，加了就只更新修改的那一部分
+                    还可以实现浏览器的无数新更新样式，但是对js文件没用，对css样式有用
+        这个设置还可以在配置文件中设置
+             devServer: {
+                 contentBase: require('path').join(__dirname, "dist"),
+                 compress: true,//是否压缩
+                 port: 8080,
+                 host: "localhost",
+             }
+    注意：
+        还要修改html文件中的引入
+        <script src="/bundle.js" ></script>//直接改成根下面的bundle.js
+        webpack-dev-server帮我们打包的文件，并没有存放到实际的硬盘上，而是直接托管到了电脑的内存中，
+        所以我们在项目根目录中找不到这个文件。好处就是快！！！
+
+4、html-webpack-plugin的使用(作用：把HTML文件也放入到内存中)
+    1、自动在内存中生成一个页面
+    2、自动把打包好的bundle.js自动引用到页面中去
+
+
+5、打包css、less、sass（https://blog.csdn.net/weixin_33816611/article/details/87167185）
+    方法一：将css打包到js内部,但是这样做会导致 JavaScript 文件变大并导致加载网页时间变长，所以我们需要使css实现单独打包
+        1.处理css文件要安装 npm i style-loader css-loader/less-loader/less/sass-loader/node-sass -D
+        安装style-loader和css-loader，css-loader用于解析css，style-loader用于将css插入html文档中
+        2.在配置文件中配置module对象，在module对象有一个rules属性，这个属性是个数组，这个数组中存放了，所有第三方文件匹配和处理规则
+        import './css/index.css'
+            module:{//用于配置所有的第三方模块加载器
+                rules:[//所有第三方模块的处理规则
+                    { test: /\.css$/, use: ['style-loader', 'css-loader'] }//前面用正则匹配css文件，后面指定处理这个文件的加载器
+                    //{ test: /\.less$/, use: ['style-loader', 'css-loader' ,'less-loader'] }
+                    //{ test: /\.sass$/, use: ['style-loader', 'css-loader' ,'sass-loader'] }
+                ]
+            }
+
+        方法二：mini-css-extract-plugin webpack4
+
+        第一步：npm i -D mini-css-extract-plugin
+        第二步：配置文件
+        const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+        new MiniCssExtractPlugin({
+            filename: 'dist/css/index.css',  // 指定生成css文件的名称
+        }),
+            rules: [
+            {
+                test: /\.css$/,  // 用正则去匹配要用该 loader 转换的 CSS /less/sass文件
+                use: [
+                    MiniCssExtractPlugin.loader,
+                    // 'style-loader',//style-loader: 在打包生成的js文件中，动态创建style标签将css-loader内部样式注入head标签
+                    // 所以在单独打包css的时候就要把rules里的style-loader去掉，否则会报错
+                    'css-loader',
+                    //'less-loader/sass-loader'
+                ]
+            }
+        ]
+
+    方法三：webpack4不推荐,且不支持热启动
+        1、npm i extract-text-webpack-plugin -D   //不支持webpack4所以npm install --save-dev extract-text-webpack-plugin@next
+        2、配置文件
+            // const ExtractTextPlugin = require('extract-text-webpack-plugin');
+            new ExtractTextPlugin("css/index.css")
+            rules: [
+                {
+                    test: /\.css$/,
+                    use: ExtractTextPlugin.extract({
+                        fallback: "style-loader",
+                        use: "css-loader"
+                    })
+                }
+            ]
+
+
+6、处理css中的图片
+    1）npm i url-loader file-loader -D   url-loader内部依赖file-loader
+        {
+            test: /\.(jpg|jpeg|gif|bmp|png)$/,
+            <!--use: 'url-loader?limit=2000&name=[name].[ext]'-->//这种写法与下面这种效果一模一样
+                use: {
+            loader: 'url-loader',
+                options: {
+                limit:2000,//如果图片大小大于2000个字节就不转化为base64编码
+                name: '[hash:8]-[name].[ext]' //图片原来叫什么名字就是什么名字,在前面放一个hash8位的值，防止文件重名
+            }
+        }
+        }
+
+7、处理字体图标
+        npm i bootstrap@3.3.7 -S    //这里安装bootstrap要加上版本号，bootstrap4是讲图标和css分开的
+        import 'bootstrap/dist/css/bootstrap.css'
+        {
+            test: /\.(ttf|eot|svg|woff|woff2)$/,
+            use: 'url-loader'
+        }
+
+
+8、处理es6的语法（babel）
+1）
+    第一套： npm i babel-core babel-loader@7 babel-plugin-transform-runtime -D   //转化工具
+        //babel-core现在版本是6，只能支持babel-loader@7 默认安装的版本是babel-loader 8
+    第二套：npm i babel-preset-env babel-preset-stage-0 -D   //语法规则
+
+2）在配置文件中，module节点下的rules数组中添加一个新的匹配规则
+        {test : /\.js$/,use: 'babel-loader' , exclude:/node-module/}
+    在配置babel的时候，必须把node_module文件排除掉，原因是：如果不排除，则babel会把none_module中所有的第三方js文件打包编译，消耗内存，同时打包速度慢
+    同时，如果把这些包打包了，项目也无法正常运行，
+3）在项目的根目录中新建一个叫做.babelrc的配置文件，这个配置文件时json格式，所以必须符合json语法规范，不能注释，字符串必须加双引号
+    在babelrc中，写：可以把presets翻译为语法
+        {
+            "presets" : ["env", "stage-0"],
+            "plugin" : ["transform-runtime"]
+        }
