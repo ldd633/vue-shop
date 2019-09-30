@@ -42,6 +42,7 @@
 <style scoped lang="less">
     .app-container{
         margin-top: 40px;
+        margin-bottom: 50px;
         overflow-x: hidden;
     }
     .v-enter{
